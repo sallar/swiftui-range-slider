@@ -10,6 +10,7 @@ import SwiftUI
 ///     RangeSlider(range: $range)
 /// }
 /// ```
+@available(iOS 26.0, *)
 public struct RangeSlider: View {
     @Binding private var range: ClosedRange<Double>
     private let bounds: ClosedRange<Double>
@@ -187,9 +188,13 @@ public struct RangeSlider: View {
     @Previewable @State var range = 0.2...0.8
     @Previewable @State var value = 0.5
 
-    VStack(spacing: 40) {
-        RangeSlider(range: $range)
-        Slider(value: $value)
+    if #available(iOS 26.0, *) {
+        VStack(spacing: 40) {
+            RangeSlider(range: $range)
+            Slider(value: $value)
+        }
+        .padding()
+    } else {
+        Text("RangeSlider requires iOS 26")
     }
-    .padding()
 }
