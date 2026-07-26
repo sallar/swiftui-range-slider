@@ -11,6 +11,11 @@ let package = Package(
         .library(name: "RangeSlider", targets: ["RangeSlider"])
     ],
     targets: [
-        .target(name: "RangeSlider")
+        .target(
+            name: "RangeSlider",
+            resources: [
+                .process("Shaders")
+            ]
+        )
     ]
 )

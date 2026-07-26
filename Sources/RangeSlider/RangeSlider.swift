@@ -17,7 +17,9 @@ public struct RangeSlider: View {
     private let step: Double?
     private let onEditingChanged: (Bool) -> Void
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var drag: DragState?
+    @State private var lastDraggedThumb = Thumb.lower
 
     /// Creates a range slider to select a closed range from a given bounded range.
     ///
@@ -44,9 +46,25 @@ public struct RangeSlider: View {
             let lowerX = Self.thumbSize.width / 2 + trackWidth * fraction(of: range.lowerBound)
             let upperX = Self.thumbSize.width / 2 + trackWidth * fraction(of: range.upperBound)
             let midY = proxy.size.height / 2
+            let lensThumb = drag?.thumb ?? lastDraggedThumb
+            let lensX = lensThumb == .lower ? lowerX : upperX
+            let lensTintSide: CGFloat = lensThumb == .lower ? 1 : -1
 
             ZStack(alignment: .leading) {
                 track(lowerX: lowerX, upperX: upperX)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .padding(.horizontal, Self.lensCanvasInset)
+                    .modifier(
+                        PressedThumbLensModifier(
+                            center: CGPoint(x: lensX + Self.lensCanvasInset, y: midY),
+                            tintSide: lensTintSide,
+                            progress: drag == nil ? 0 : 1,
+                            isEnabled: !reduceTransparency,
+                            normalSize: Self.thumbSize,
+                            pressedSize: Self.pressedThumbSize
+                        )
+                    )
+                    .offset(x: -Self.lensCanvasInset)
 
                 thumb(.lower)
                     .position(x: lowerX, y: midY)
@@ -54,11 +72,13 @@ public struct RangeSlider: View {
                 thumb(.upper)
                     .position(x: upperX, y: midY)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
             .animation(.smooth(duration: 0.25), value: drag?.thumb)
             .contentShape(.rect)
             .gesture(dragGesture(trackWidth: trackWidth, lowerX: lowerX, upperX: upperX))
         }
-        .frame(height: Self.controlHeight)
+        .frame(height: Self.lensCanvasHeight)
+        .padding(.vertical, -(Self.lensCanvasHeight - Self.controlHeight) / 2)
     }
 
     // MARK: - Track
@@ -84,9 +104,8 @@ public struct RangeSlider: View {
 
         return Capsule()
             .fill(.white)
-            .opacity(isPressed ? 0 : 1)
+            .opacity(isPressed && !reduceTransparency ? 0 : 1)
             .frame(width: size.width, height: size.height)
-            .glassEffect(.clear, in: .capsule)
             .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
         .accessibilityElement()
         .accessibilityLabel(thumb == .lower ? "Minimum" : "Maximum")
@@ -112,6 +131,7 @@ public struct RangeSlider: View {
             .onChanged { gesture in
                 if drag == nil {
                     guard let thumb = pickThumb(for: gesture, lowerX: lowerX, upperX: upperX) else { return }
+                    lastDraggedThumb = thumb
                     drag = DragState(thumb: thumb, initialValue: value(of: thumb))
                     onEditingChanged(true)
                 }
@@ -182,6 +202,37 @@ public struct RangeSlider: View {
     private static let pressedThumbSize = CGSize(width: 56, height: 38)
     private static let trackHeight: CGFloat = 17.0 / 3
     private static let controlHeight: CGFloat = 35
+    private static let lensCanvasHeight: CGFloat = 58
+    private static let lensCanvasInset: CGFloat = 44
+}
+
+@available(iOS 26.0, *)
+@Animatable
+private struct PressedThumbLensModifier: AnimatableModifier {
+    @AnimatableIgnored var center: CGPoint
+    @AnimatableIgnored var tintSide: CGFloat
+    var progress: CGFloat
+    @AnimatableIgnored var isEnabled: Bool
+    @AnimatableIgnored var normalSize: CGSize
+    @AnimatableIgnored var pressedSize: CGSize
+
+    func body(content: Content) -> some View {
+        let width = normalSize.width + (pressedSize.width - normalSize.width) * progress
+        let height = normalSize.height + (pressedSize.height - normalSize.height) * progress
+
+        // Native glass inherits the sheet's glass compositing context. Sampling
+        // only this slider's track keeps the pressed lens optically consistent.
+        content.layerEffect(
+            ShaderLibrary.bundle(.module).rangeSliderThumbLens(
+                .float2(center.x, center.y),
+                .float2(width, height),
+                .float(tintSide),
+                .float(progress)
+            ),
+            maxSampleOffset: CGSize(width: 44, height: 30),
+            isEnabled: isEnabled && progress > 0
+        )
+    }
 }
 
 #Preview("RangeSlider vs Slider") {
