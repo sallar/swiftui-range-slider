@@ -64,7 +64,11 @@ public struct RangeSlider: View {
                             pressedSize: Self.pressedThumbSize
                         )
                     )
-                    .offset(x: -Self.lensCanvasInset)
+                    // The horizontal padding above only exists to give the
+                    // lens room to render. Clamping back to the control's own
+                    // width keeps that extra canvas out of the layout, so the
+                    // enclosing ZStack is not widened and re-centered.
+                    .frame(width: proxy.size.width, height: proxy.size.height)
 
                 thumb(.lower)
                     .position(x: lowerX, y: midY)
