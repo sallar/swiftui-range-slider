@@ -18,8 +18,10 @@ public struct RangeSlider: View {
     private let onEditingChanged: (Bool) -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
     @State private var drag: DragState?
     @State private var lastDraggedThumb = Thumb.lower
+    @State private var stretch: CGFloat = 0
 
     /// Creates a range slider to select a closed range from a given bounded range.
     ///
@@ -59,7 +61,9 @@ public struct RangeSlider: View {
                             center: CGPoint(x: lensX + Self.lensCanvasInset, y: midY),
                             tintSide: lensTintSide,
                             progress: drag == nil ? 0 : 1,
+                            stretch: stretch,
                             isEnabled: !reduceTransparency,
+                            isDark: colorScheme == .dark,
                             normalSize: Self.thumbSize,
                             pressedSize: Self.pressedThumbSize
                         )
@@ -77,7 +81,10 @@ public struct RangeSlider: View {
                     .position(x: upperX, y: midY)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
-            .animation(.smooth(duration: 0.25), value: drag?.thumb)
+            // The press and the stretch animate on different curves, so each is
+            // opened explicitly where its state changes. A blanket
+            // `.animation(_:value:)` here would override the stretch spring on
+            // the frame the press starts or ends.
             .contentShape(.rect)
             .gesture(dragGesture(trackWidth: trackWidth, lowerX: lowerX, upperX: upperX))
         }
@@ -125,7 +132,11 @@ public struct RangeSlider: View {
     }
 
     private func thumbSize(of thumb: Thumb) -> CGSize {
-        drag?.thumb == thumb ? Self.pressedThumbSize : Self.thumbSize
+        let base = drag?.thumb == thumb ? Self.pressedThumbSize : Self.thumbSize
+        // Only the thumb the lens is tracking carries the squash and stretch,
+        // including while it settles after the drag ends.
+        guard thumb == (drag?.thumb ?? lastDraggedThumb) else { return base }
+        return ThumbStretch.apply(base, stretch)
     }
 
     // MARK: - Dragging
@@ -136,20 +147,67 @@ public struct RangeSlider: View {
                 if drag == nil {
                     guard let thumb = pickThumb(for: gesture, lowerX: lowerX, upperX: upperX) else { return }
                     lastDraggedThumb = thumb
-                    drag = DragState(thumb: thumb, initialValue: value(of: thumb))
+                    withAnimation(Self.pressAnimation) {
+                        drag = DragState(
+                            thumb: thumb,
+                            initialValue: value(of: thumb),
+                            lastFraction: fraction(of: value(of: thumb)),
+                            lastTime: gesture.time
+                        )
+                    }
                     onEditingChanged(true)
                 }
                 guard let drag, trackWidth > 0 else { return }
                 let span = bounds.upperBound - bounds.lowerBound
                 let delta = Double(gesture.translation.width / trackWidth) * span
-                set(drag.initialValue + delta, for: drag.thumb)
+                // The value has to track the finger exactly. Only the stretch
+                // is allowed to spring, so this update opts out of the
+                // animation `updateStretch` opens below.
+                var immediate = Transaction()
+                immediate.disablesAnimations = true
+                withTransaction(immediate) {
+                    set(drag.initialValue + delta, for: drag.thumb)
+                }
+                updateStretch(at: gesture.time, trackWidth: trackWidth)
             }
             .onEnded { _ in
                 if drag != nil {
-                    drag = nil
+                    withAnimation(Self.pressAnimation) { drag = nil }
+                    // Releasing drops the target to rest. The spring carries
+                    // its momentum through, which is what produces the smoosh.
+                    withAnimation(Self.stretchSpring) { stretch = 0 }
                     onEditingChanged(false)
                 }
             }
+    }
+
+    /// Stretches the thumb along the direction of travel, in proportion to how
+    /// fast it is moving.
+    ///
+    /// The speed is measured from the thumb's own position rather than the
+    /// finger's, so the thumb stays at rest once the value is pinned against a
+    /// bound or against the other thumb. Retargeting a bouncy spring every
+    /// event means a sudden stop leaves the spring with momentum it has to
+    /// spend, which compresses the capsule past its resting size before it
+    /// settles — the same read as the system control.
+    private func updateStretch(at time: Date, trackWidth: CGFloat) {
+        guard var state = drag else { return }
+
+        let currentFraction = fraction(of: value(of: state.thumb))
+        let elapsed = max(time.timeIntervalSince(state.lastTime), 1.0 / 120.0)
+        let travelled = abs(currentFraction - state.lastFraction) * trackWidth
+        let speed = travelled / CGFloat(elapsed)
+
+        state.speed += (speed - state.speed) * Self.speedSmoothing
+        state.lastFraction = currentFraction
+        state.lastTime = time
+
+        var immediate = Transaction()
+        immediate.disablesAnimations = true
+        withTransaction(immediate) { drag = state }
+
+        let target = min(state.speed / Self.stretchReferenceSpeed, 1) * Self.maxStretch
+        withAnimation(Self.stretchSpring) { stretch = target }
     }
 
     /// Picks the thumb nearest to where the drag started. When the thumbs
@@ -179,6 +237,9 @@ public struct RangeSlider: View {
     private struct DragState {
         var thumb: Thumb
         var initialValue: Double
+        var lastFraction: CGFloat
+        var lastTime: Date
+        var speed: CGFloat = 0
     }
 
     private enum Thumb {
@@ -208,6 +269,29 @@ public struct RangeSlider: View {
     private static let controlHeight: CGFloat = 35
     private static let lensCanvasHeight: CGFloat = 58
     private static let lensCanvasInset: CGFloat = 44
+
+    private static let pressAnimation = Animation.smooth(duration: 0.25)
+
+    /// The thumb speed, in points per second, that stretches it the full
+    /// `maxStretch`.
+    private static let stretchReferenceSpeed: CGFloat = 1200
+    private static let maxStretch: CGFloat = 0.22
+    private static let speedSmoothing: CGFloat = 0.6
+    private static let stretchSpring = Animation.spring(duration: 0.25, bounce: 0.5)
+}
+
+/// Squash and stretch applied to the thumb, preserving its rough area so a
+/// wider capsule also reads as a shorter one.
+@available(iOS 26.0, *)
+private enum ThumbStretch {
+    static let verticalRatio: CGFloat = 0.6
+
+    static func apply(_ size: CGSize, _ stretch: CGFloat) -> CGSize {
+        CGSize(
+            width: size.width * (1 + stretch),
+            height: size.height * (1 - stretch * verticalRatio)
+        )
+    }
 }
 
 @available(iOS 26.0, *)
@@ -216,22 +300,30 @@ private struct PressedThumbLensModifier: AnimatableModifier {
     @AnimatableIgnored var center: CGPoint
     @AnimatableIgnored var tintSide: CGFloat
     var progress: CGFloat
+    var stretch: CGFloat
     @AnimatableIgnored var isEnabled: Bool
+    @AnimatableIgnored var isDark: Bool
     @AnimatableIgnored var normalSize: CGSize
     @AnimatableIgnored var pressedSize: CGSize
 
     func body(content: Content) -> some View {
-        let width = normalSize.width + (pressedSize.width - normalSize.width) * progress
-        let height = normalSize.height + (pressedSize.height - normalSize.height) * progress
+        let size = ThumbStretch.apply(
+            CGSize(
+                width: normalSize.width + (pressedSize.width - normalSize.width) * progress,
+                height: normalSize.height + (pressedSize.height - normalSize.height) * progress
+            ),
+            stretch
+        )
 
         // Native glass inherits the sheet's glass compositing context. Sampling
         // only this slider's track keeps the pressed lens optically consistent.
         content.layerEffect(
             ShaderLibrary.bundle(.module).rangeSliderThumbLens(
                 .float2(center.x, center.y),
-                .float2(width, height),
+                .float2(size.width, size.height),
                 .float(tintSide),
-                .float(progress)
+                .float(progress),
+                .float(isDark ? 1 : 0)
             ),
             maxSampleOffset: CGSize(width: 44, height: 30),
             isEnabled: isEnabled && progress > 0
