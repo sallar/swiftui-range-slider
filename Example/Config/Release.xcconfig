@@ -1,0 +1,5 @@
+// Release.xcconfig
+
+#include "Shared.xcconfig"
+
+SWIFT_OPTIMIZATION_LEVEL = -O

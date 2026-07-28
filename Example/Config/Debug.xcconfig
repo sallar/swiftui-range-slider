@@ -1,0 +1,6 @@
+// Debug.xcconfig
+
+#include "Shared.xcconfig"
+
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG $(inherited)

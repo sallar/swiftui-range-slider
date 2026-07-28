@@ -20,7 +20,10 @@ static half4 sourceOver(half4 foreground, half4 background) {
     float2 size,
     float tintSide,
     float progress,
-    float isDark
+    float isDark,
+    // How much body the glass carries. A small capsule has to hold more of it
+    // to read as glass at all, so macOS asks for more than iOS does.
+    float bodyGain
 ) {
     const half4 source = layer.sample(position);
     const float2 halfSize = size * 0.5;
@@ -90,14 +93,14 @@ static half4 sourceOver(half4 foreground, half4 background) {
 
     // Glass concentrates the light it carries, so the tint reads a little
     // brighter inside the capsule than on the open track.
-    refracted.rgb *= half(1.0 + 0.12 * isDark);
+    refracted.rgb *= half(1.0 + 0.12 * isDark * bodyGain);
 
     half4 lens = mix(source, refracted, half(lensMix));
 
     // The system bubble is close to clear: just enough body to stay legible
     // over busy content, and clearer still on a dark appearance.
     const float bodyLight =
-        mix(0.085, 0.032, isDark) * (1.0 + 0.30 * (1.0 - normalized.y) * 0.5);
+        mix(0.085, 0.032, isDark) * bodyGain * (1.0 + 0.30 * (1.0 - normalized.y) * 0.5);
     lens = sourceOver(
         half4(
             half3(half(bodyLight * lensMix)),

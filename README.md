@@ -1,19 +1,32 @@
 # RangeSlider
 
-A SwiftUI range slider for iOS 26+ that looks and feels like the system `Slider` — same track metrics, ticks, value labels, tint behavior, and a Liquid Glass thumb that morphs into clear glass while dragging.
+A SwiftUI range slider that looks and feels like the system `Slider` on the platform it is running on — same metrics, ticks, value labels, tint behavior, and the same Liquid Glass thumb that turns clear while you drag it.
 
-SwiftUI (and UIKit) only ship a single-thumb slider. `RangeSlider` fills that gap with two thumbs for selecting a closed range.
+SwiftUI (and UIKit, and AppKit) only ship a single-thumb slider. `RangeSlider` fills that gap with two thumbs for selecting a closed range.
 
 ![A RangeSlider being dragged: the thumb morphs into clear glass that refracts the track beneath it](Documentation/drag.gif)
+
+### iOS
 
 | Light | Dark |
 | --- | --- |
 | ![RangeSlider in light appearance, showing a plain slider, one with value labels, and one with tick marks](Documentation/showcase-light.png) | ![The same three sliders in dark appearance](Documentation/showcase-dark.png) |
 
+### macOS
+
+The example app puts the system `Slider` directly above a `RangeSlider` in every configuration:
+
+| Light | Dark |
+| --- | --- |
+| ![The system Slider above a RangeSlider on macOS, in light appearance](Documentation/macos-light.png) | ![The same comparison in dark appearance](Documentation/macos-dark.png) |
+
 ## Requirements
 
-- iOS 26.0+
+- iOS 26.0+ or macOS 26.0+
 - Swift 6.2+ / Xcode 26+
+
+The package itself can be added to iOS 18 and macOS 15 targets; the control is
+gated on the newer OS.
 
 ## Installation
 
@@ -83,8 +96,9 @@ RangeSlider(
 )
 ```
 
-A `label` may also be passed, in the same position as on `Slider`. As on the
-system slider on iOS it is not drawn; it names the control for VoiceOver.
+A `label` may also be passed, in the same position as on `Slider`. It is drawn
+ahead of the control on macOS and left undrawn on iOS — on both platforms it
+names the control for VoiceOver — which is what the system slider does on each.
 
 ### Tint
 
@@ -98,8 +112,35 @@ RangeSlider(range: $range)
 ## Behavior
 
 - Dragging anywhere on the track grabs the nearest thumb; when the thumbs overlap, the first direction of movement decides which one moves.
+- On macOS, pressing the track also carries the nearest knob to the pointer, the way every other macOS slider behaves. On iOS a press only picks a thumb up.
 - Thumbs clamp against each other — the lower bound can never exceed the upper bound.
 - Both thumbs are individually accessible with VoiceOver adjustable actions, stepping tick by tick where there are ticks.
+
+## How each platform is drawn
+
+Everything that differs between platforms lives behind a single internal
+`RangeSliderStyle`: the metrics, the track, and the thumb. The control itself
+only does arithmetic — positions, values, gestures and accessibility — so a look
+is a conformance rather than a thicket of `#if` in the middle of the control.
+
+| | iOS 26 | macOS 26 |
+| --- | --- | --- |
+| Thumb | 37 × 24 capsule, grows to 56 × 38 under the finger | 20 × 16 capsule, grows to 24 × 20 under the pointer |
+| Track | 5.67 pt | 6 pt |
+| Held thumb | clear glass, stretching with the speed of the drag | clear glass, no stretch |
+| Stepped slider | marked only where ticks are given | every step marked, as macOS does |
+| Label | undrawn | drawn ahead of the control |
+| Pressing the track | picks up the nearest thumb | carries the nearest knob to the pointer |
+
+Both platforms share one Metal shader for the glass, at the size and body their
+own control calls for.
+
+## Example app
+
+`Example/RangeSliderExample.xcodeproj` is a single multiplatform app that runs on
+both macOS and iOS and puts the system `Slider` next to a `RangeSlider` in every
+configuration the package supports, with an appearance picker and a toggle that
+outlines what each control claims in the layout.
 
 ## License
 

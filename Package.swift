@@ -5,7 +5,8 @@ import PackageDescription
 let package = Package(
     name: "swiftui-range-slider",
     platforms: [
-        .iOS(.v18)
+        .iOS(.v18),
+        .macOS(.v15)
     ],
     products: [
         .library(name: "RangeSlider", targets: ["RangeSlider"])

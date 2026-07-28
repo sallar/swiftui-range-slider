@@ -1,0 +1,227 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9A00000000000000000000B4 /* RangeSlider in Frameworks */ = {isa = PBXBuildFile; productRef = 9A00000000000000000000B3 /* RangeSlider */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		9A00000000000000000000A3 /* RangeSliderExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RangeSliderExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9A00000000000000000000AB /* Exceptions for "Config" folder in "RangeSliderExample" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Debug.xcconfig,
+				Release.xcconfig,
+				Shared.xcconfig,
+			);
+			target = 9A00000000000000000000A2 /* RangeSliderExample */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9A00000000000000000000A9 /* RangeSliderExample */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RangeSliderExample;
+			sourceTree = "<group>";
+		};
+		9A00000000000000000000AA /* Config */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9A00000000000000000000AB /* Exceptions for "Config" folder in "RangeSliderExample" target */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9A00000000000000000000A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A00000000000000000000B4 /* RangeSlider in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9A00000000000000000000A7 = {
+			isa = PBXGroup;
+			children = (
+				9A00000000000000000000AA /* Config */,
+				9A00000000000000000000A9 /* RangeSliderExample */,
+				9A00000000000000000000A8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9A00000000000000000000A8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9A00000000000000000000A3 /* RangeSliderExample.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9A00000000000000000000A2 /* RangeSliderExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9A00000000000000000000AF /* Build configuration list for PBXNativeTarget "RangeSliderExample" */;
+			buildPhases = (
+				9A00000000000000000000A4 /* Sources */,
+				9A00000000000000000000A5 /* Frameworks */,
+				9A00000000000000000000A6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9A00000000000000000000AA /* Config */,
+				9A00000000000000000000A9 /* RangeSliderExample */,
+			);
+			name = RangeSliderExample;
+			packageProductDependencies = (
+				9A00000000000000000000B3 /* RangeSlider */,
+			);
+			productName = RangeSliderExample;
+			productReference = 9A00000000000000000000A3 /* RangeSliderExample.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9A00000000000000000000A1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					9A00000000000000000000A2 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = 9A00000000000000000000AC /* Build configuration list for PBXProject "RangeSliderExample" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9A00000000000000000000A7;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9A00000000000000000000B2 /* XCLocalSwiftPackageReference ".." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9A00000000000000000000A8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9A00000000000000000000A2 /* RangeSliderExample */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9A00000000000000000000A6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9A00000000000000000000A4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		9A00000000000000000000AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		9A00000000000000000000AE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		9A00000000000000000000B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 9A00000000000000000000AA /* Config */;
+			baseConfigurationReferenceRelativePath = Debug.xcconfig;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		9A00000000000000000000B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 9A00000000000000000000AA /* Config */;
+			baseConfigurationReferenceRelativePath = Release.xcconfig;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9A00000000000000000000AC /* Build configuration list for PBXProject "RangeSliderExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A00000000000000000000AD /* Debug */,
+				9A00000000000000000000AE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9A00000000000000000000AF /* Build configuration list for PBXNativeTarget "RangeSliderExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A00000000000000000000B0 /* Debug */,
+				9A00000000000000000000B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		9A00000000000000000000B2 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9A00000000000000000000B3 /* RangeSlider */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RangeSlider;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 9A00000000000000000000A1 /* Project object */;
+}
