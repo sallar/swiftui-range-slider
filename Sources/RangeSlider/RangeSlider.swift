@@ -10,11 +10,29 @@ import SwiftUI
 ///     RangeSlider(range: $range)
 /// }
 /// ```
+///
+/// The initializers mirror `Slider`, including stepping, tick marks, and
+/// minimum and maximum value labels:
+///
+/// ```swift
+/// RangeSlider(
+///     range: $range,
+///     in: 0...10,
+///     step: 1,
+///     minimumValueLabel: { Text("0") },
+///     maximumValueLabel: { Text("10") },
+///     tick: { SliderTick($0) }
+/// )
+/// ```
 @available(iOS 26.0, *)
-public struct RangeSlider: View {
+public struct RangeSlider<Label: View, ValueLabel: View>: View {
     @Binding private var range: ClosedRange<Double>
     private let bounds: ClosedRange<Double>
     private let step: Double?
+    private let ticks: [Double]
+    private let label: Label
+    private let minimumValueLabel: ValueLabel
+    private let maximumValueLabel: ValueLabel
     private let onEditingChanged: (Bool) -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -23,49 +41,69 @@ public struct RangeSlider: View {
     @State private var lastDraggedThumb = Thumb.lower
     @State private var stretch: CGFloat = 0
 
-    /// Creates a range slider to select a closed range from a given bounded range.
-    ///
-    /// - Parameters:
-    ///   - range: The selected range within `bounds`.
-    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
-    ///   - step: The distance between each valid value.
-    ///   - onEditingChanged: A callback for when editing begins and ends.
-    public init(
+    init(
         range: Binding<ClosedRange<Double>>,
-        in bounds: ClosedRange<Double> = 0...1,
-        step: Double? = nil,
-        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+        bounds: ClosedRange<Double>,
+        step: Double?,
+        ticks: [Double],
+        label: Label,
+        minimumValueLabel: ValueLabel,
+        maximumValueLabel: ValueLabel,
+        onEditingChanged: @escaping (Bool) -> Void
     ) {
         _range = range
         self.bounds = bounds
         self.step = step
+        self.ticks = ticks
+        self.label = label
+        self.minimumValueLabel = minimumValueLabel
+        self.maximumValueLabel = maximumValueLabel
         self.onEditingChanged = onEditingChanged
     }
 
     public var body: some View {
+        let control = HStack(spacing: Metrics.valueLabelSpacing) {
+            minimumValueLabel
+            slider
+            maximumValueLabel
+        }
+
+        // Like the system control on iOS, the label is not drawn — it only
+        // names the control for VoiceOver, which needs the text rather than
+        // the view.
+        if let text = label as? Text {
+            control
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(text)
+        } else {
+            control
+        }
+    }
+
+    private var slider: some View {
         GeometryReader { proxy in
-            let trackWidth = max(proxy.size.width - Self.thumbSize.width, 0)
-            let lowerX = Self.thumbSize.width / 2 + trackWidth * fraction(of: range.lowerBound)
-            let upperX = Self.thumbSize.width / 2 + trackWidth * fraction(of: range.upperBound)
+            let trackWidth = max(proxy.size.width - Metrics.thumbSize.width, 0)
+            let lowerX = position(of: range.lowerBound, trackWidth: trackWidth)
+            let upperX = position(of: range.upperBound, trackWidth: trackWidth)
             let midY = proxy.size.height / 2
             let lensThumb = drag?.thumb ?? lastDraggedThumb
             let lensX = lensThumb == .lower ? lowerX : upperX
             let lensTintSide: CGFloat = lensThumb == .lower ? 1 : -1
 
             ZStack(alignment: .leading) {
-                track(lowerX: lowerX, upperX: upperX)
+                track(lowerX: lowerX, upperX: upperX, trackWidth: trackWidth)
                     .frame(width: proxy.size.width, height: proxy.size.height)
-                    .padding(.horizontal, Self.lensCanvasInset)
+                    .padding(.horizontal, Metrics.lensCanvasInset)
                     .modifier(
                         PressedThumbLensModifier(
-                            center: CGPoint(x: lensX + Self.lensCanvasInset, y: midY),
+                            center: CGPoint(x: lensX + Metrics.lensCanvasInset, y: midY),
                             tintSide: lensTintSide,
                             progress: drag == nil ? 0 : 1,
                             stretch: stretch,
                             isEnabled: !reduceTransparency,
                             isDark: colorScheme == .dark,
-                            normalSize: Self.thumbSize,
-                            pressedSize: Self.pressedThumbSize
+                            normalSize: Metrics.thumbSize,
+                            pressedSize: Metrics.pressedThumbSize
                         )
                     )
                     // The horizontal padding above only exists to give the
@@ -88,22 +126,42 @@ public struct RangeSlider: View {
             .contentShape(.rect)
             .gesture(dragGesture(trackWidth: trackWidth, lowerX: lowerX, upperX: upperX))
         }
-        .frame(height: Self.lensCanvasHeight)
-        .padding(.vertical, -(Self.lensCanvasHeight - Self.controlHeight) / 2)
+        .frame(height: Metrics.lensCanvasHeight)
+        .padding(.vertical, -(Metrics.lensCanvasHeight - Metrics.controlHeight) / 2)
     }
 
     // MARK: - Track
 
-    private func track(lowerX: CGFloat, upperX: CGFloat) -> some View {
+    private func track(lowerX: CGFloat, upperX: CGFloat, trackWidth: CGFloat) -> some View {
         ZStack(alignment: .leading) {
             Capsule()
                 .fill(.primary.opacity(0.1))
-                .frame(height: Self.trackHeight)
+                .frame(height: Metrics.trackHeight)
 
             Capsule()
                 .fill(.tint)
-                .frame(width: max(upperX - lowerX, Self.trackHeight), height: Self.trackHeight)
-                .offset(x: lowerX - Self.trackHeight / 2)
+                .frame(width: max(upperX - lowerX, Metrics.trackHeight), height: Metrics.trackHeight)
+                .offset(x: lowerX - Metrics.trackHeight / 2)
+
+            // Ticks sit below the track and keep the same color on both sides
+            // of the selection, so the thumbs pass over them. They are drawn
+            // rather than laid out because a tick is smaller than a point:
+            // rounding its frame to the pixel grid would cost it its softness.
+            if !ticks.isEmpty {
+                Canvas { context, size in
+                    let color = Color(uiColor: .opaqueSeparator)
+                    let y = size.height / 2 + Metrics.tickCenterOffset
+                    for tick in ticks {
+                        let rect = CGRect(
+                            x: position(of: tick, trackWidth: trackWidth) - Metrics.tickDiameter / 2,
+                            y: y - Metrics.tickDiameter / 2,
+                            width: Metrics.tickDiameter,
+                            height: Metrics.tickDiameter
+                        )
+                        context.fill(Circle().path(in: rect), with: .color(color))
+                    }
+                }
+            }
         }
     }
 
@@ -122,21 +180,39 @@ public struct RangeSlider: View {
         .accessibilityLabel(thumb == .lower ? "Minimum" : "Maximum")
         .accessibilityValue(Text(value(of: thumb).formatted()))
         .accessibilityAdjustableAction { direction in
-            let increment = step ?? (bounds.upperBound - bounds.lowerBound) / 10
-            switch direction {
-            case .increment: set(value(of: thumb) + increment, for: thumb)
-            case .decrement: set(value(of: thumb) - increment, for: thumb)
-            @unknown default: break
-            }
+            adjust(thumb, direction)
         }
     }
 
     private func thumbSize(of thumb: Thumb) -> CGSize {
-        let base = drag?.thumb == thumb ? Self.pressedThumbSize : Self.thumbSize
+        let base = drag?.thumb == thumb ? Metrics.pressedThumbSize : Metrics.thumbSize
         // Only the thumb the lens is tracking carries the squash and stretch,
         // including while it settles after the drag ends.
         guard thumb == (drag?.thumb ?? lastDraggedThumb) else { return base }
         return ThumbStretch.apply(base, stretch)
+    }
+
+    /// Steps a thumb to the next valid value. Ticks take precedence over the
+    /// step, since a slider with ticks can only rest on one of them.
+    private func adjust(_ thumb: Thumb, _ direction: AccessibilityAdjustmentDirection) {
+        let current = value(of: thumb)
+        guard ticks.isEmpty else {
+            switch direction {
+            case .increment:
+                if let next = ticks.first(where: { $0 > current }) { set(next, for: thumb) }
+            case .decrement:
+                if let previous = ticks.last(where: { $0 < current }) { set(previous, for: thumb) }
+            @unknown default: break
+            }
+            return
+        }
+
+        let increment = step ?? (bounds.upperBound - bounds.lowerBound) / 10
+        switch direction {
+        case .increment: set(current + increment, for: thumb)
+        case .decrement: set(current - increment, for: thumb)
+        @unknown default: break
+        }
     }
 
     // MARK: - Dragging
@@ -147,7 +223,7 @@ public struct RangeSlider: View {
                 if drag == nil {
                     guard let thumb = pickThumb(for: gesture, lowerX: lowerX, upperX: upperX) else { return }
                     lastDraggedThumb = thumb
-                    withAnimation(Self.pressAnimation) {
+                    withAnimation(Metrics.pressAnimation) {
                         drag = DragState(
                             thumb: thumb,
                             initialValue: value(of: thumb),
@@ -172,10 +248,10 @@ public struct RangeSlider: View {
             }
             .onEnded { _ in
                 if drag != nil {
-                    withAnimation(Self.pressAnimation) { drag = nil }
+                    withAnimation(Metrics.pressAnimation) { drag = nil }
                     // Releasing drops the target to rest. The spring carries
                     // its momentum through, which is what produces the smoosh.
-                    withAnimation(Self.stretchSpring) { stretch = 0 }
+                    withAnimation(Metrics.stretchSpring) { stretch = 0 }
                     onEditingChanged(false)
                 }
             }
@@ -198,7 +274,7 @@ public struct RangeSlider: View {
         let travelled = abs(currentFraction - state.lastFraction) * trackWidth
         let speed = travelled / CGFloat(elapsed)
 
-        state.speed += (speed - state.speed) * Self.speedSmoothing
+        state.speed += (speed - state.speed) * Metrics.speedSmoothing
         state.lastFraction = currentFraction
         state.lastTime = time
 
@@ -206,8 +282,8 @@ public struct RangeSlider: View {
         immediate.disablesAnimations = true
         withTransaction(immediate) { drag = state }
 
-        let target = min(state.speed / Self.stretchReferenceSpeed, 1) * Self.maxStretch
-        withAnimation(Self.stretchSpring) { stretch = target }
+        let target = min(state.speed / Metrics.stretchReferenceSpeed, 1) * Metrics.maxStretch
+        withAnimation(Metrics.stretchSpring) { stretch = target }
     }
 
     /// Picks the thumb nearest to where the drag started. When the thumbs
@@ -256,28 +332,492 @@ public struct RangeSlider: View {
         return CGFloat((value - bounds.lowerBound) / span)
     }
 
+    /// The center of a thumb resting on `value`, in the slider's own
+    /// coordinate space. Ticks use it too, so a tick always sits directly
+    /// under the thumb that can rest on it.
+    private func position(of value: Double, trackWidth: CGFloat) -> CGFloat {
+        Metrics.thumbSize.width / 2 + trackWidth * fraction(of: value)
+    }
+
+    /// Ticks constrain the values a thumb can take, the same way the system
+    /// control does — a slider with ticks only rests on one of them.
     private func snap(_ value: Double) -> Double {
+        if let nearest = ticks.min(by: { abs($0 - value) < abs($1 - value) }) {
+            return nearest
+        }
         guard let step, step > 0 else { return value }
         return bounds.lowerBound + (((value - bounds.lowerBound) / step).rounded() * step)
     }
+}
 
-    // MARK: - Metrics
+// MARK: - Initializers
 
-    private static let thumbSize = CGSize(width: 37, height: 24)
-    private static let pressedThumbSize = CGSize(width: 56, height: 38)
-    private static let trackHeight: CGFloat = 17.0 / 3
-    private static let controlHeight: CGFloat = 35
-    private static let lensCanvasHeight: CGFloat = 58
-    private static let lensCanvasInset: CGFloat = 44
+@available(iOS 26.0, *)
+extension RangeSlider where Label == EmptyView, ValueLabel == EmptyView {
+    /// Creates a range slider to select a closed range from a given bounded range.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double? = nil,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: [],
+            label: EmptyView(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
 
-    private static let pressAnimation = Animation.smooth(duration: 0.25)
+    /// Creates a range slider that marks — and snaps to — the given ticks.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - ticks: The values to mark on the track.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        @SliderTickBuilder<Double> ticks: () -> some SliderTickContent<Double>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: nil,
+            ticks: TickValues.from(ticks(), in: bounds),
+            label: EmptyView(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a range slider that steps through `bounds`, marking the steps
+    /// `tick` returns a tick for.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - tick: A tick to mark the given step value with, or `nil` to leave
+    ///     that step unmarked.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double,
+        tick: (Double) -> SliderTick<Double>?,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: TickValues.from(tick, steppingBy: step, in: bounds),
+            label: EmptyView(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+}
+
+@available(iOS 26.0, *)
+extension RangeSlider where Label == EmptyView {
+    /// Creates a range slider with labels for its minimum and maximum values.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double? = nil,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: [],
+            label: EmptyView(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a range slider with value labels that marks — and snaps to —
+    /// the given ticks.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - ticks: The values to mark on the track.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        @SliderTickBuilder<Double> ticks: () -> some SliderTickContent<Double>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: nil,
+            ticks: TickValues.from(ticks(), in: bounds),
+            label: EmptyView(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a range slider with value labels that steps through `bounds`,
+    /// marking the steps `tick` returns a tick for.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - tick: A tick to mark the given step value with, or `nil` to leave
+    ///     that step unmarked.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        tick: (Double) -> SliderTick<Double>?,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: TickValues.from(tick, steppingBy: step, in: bounds),
+            label: EmptyView(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+}
+
+@available(iOS 26.0, *)
+extension RangeSlider where ValueLabel == EmptyView {
+    /// Creates a labeled range slider.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double? = nil,
+        @ViewBuilder label: () -> Label,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: [],
+            label: label(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a labeled range slider that marks — and snaps to — the given
+    /// ticks.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - ticks: The values to mark on the track.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        @ViewBuilder label: () -> Label,
+        @SliderTickBuilder<Double> ticks: () -> some SliderTickContent<Double>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: nil,
+            ticks: TickValues.from(ticks(), in: bounds),
+            label: label(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a labeled range slider that steps through `bounds`, marking the
+    /// steps `tick` returns a tick for.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - tick: A tick to mark the given step value with, or `nil` to leave
+    ///     that step unmarked.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double,
+        @ViewBuilder label: () -> Label,
+        tick: (Double) -> SliderTick<Double>?,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: TickValues.from(tick, steppingBy: step, in: bounds),
+            label: label(),
+            minimumValueLabel: EmptyView(),
+            maximumValueLabel: EmptyView(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+}
+
+@available(iOS 26.0, *)
+extension RangeSlider {
+    /// Creates a labeled range slider with labels for its minimum and maximum
+    /// values.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double? = nil,
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: [],
+            label: label(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a labeled range slider that marks — and snaps to — the given
+    /// ticks.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - ticks: The values to mark on the track.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        @SliderTickBuilder<Double> ticks: () -> some SliderTickContent<Double>,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: nil,
+            ticks: TickValues.from(ticks(), in: bounds),
+            label: label(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+
+    /// Creates a labeled range slider that steps through `bounds`, marking the
+    /// steps `tick` returns a tick for.
+    ///
+    /// - Parameters:
+    ///   - range: The selected range within `bounds`.
+    ///   - bounds: The full range of the valid values. Defaults to `0...1`.
+    ///   - step: The distance between each valid value.
+    ///   - label: A view that describes the control. Like the system slider on
+    ///     iOS, it is not drawn; it names the control for VoiceOver.
+    ///   - minimumValueLabel: A view that describes `bounds.lowerBound`.
+    ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
+    ///   - tick: A tick to mark the given step value with, or `nil` to leave
+    ///     that step unmarked.
+    ///   - onEditingChanged: A callback for when editing begins and ends.
+    public init(
+        range: Binding<ClosedRange<Double>>,
+        in bounds: ClosedRange<Double> = 0...1,
+        step: Double,
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder minimumValueLabel: () -> ValueLabel,
+        @ViewBuilder maximumValueLabel: () -> ValueLabel,
+        tick: (Double) -> SliderTick<Double>?,
+        onEditingChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
+        self.init(
+            range: range,
+            bounds: bounds,
+            step: step,
+            ticks: TickValues.from(tick, steppingBy: step, in: bounds),
+            label: label(),
+            minimumValueLabel: minimumValueLabel(),
+            maximumValueLabel: maximumValueLabel(),
+            onEditingChanged: onEditingChanged
+        )
+    }
+}
+
+// MARK: - Ticks
+
+/// Reads the values out of SwiftUI's `SliderTick`, which carries one but does
+/// not expose it.
+@available(iOS 26.0, *)
+private enum TickValues {
+    static func from(
+        _ content: some SliderTickContent<Double>,
+        in bounds: ClosedRange<Double>
+    ) -> [Double] {
+        sorted(content.body.map { value(of: $0, in: bounds) }, in: bounds)
+    }
+
+    static func from(
+        _ tick: (Double) -> SliderTick<Double>?,
+        steppingBy step: Double,
+        in bounds: ClosedRange<Double>
+    ) -> [Double] {
+        guard step > 0, step.isFinite else { return [] }
+        let span = bounds.upperBound - bounds.lowerBound
+        guard span > 0 else { return [] }
+        // The nudge absorbs the division's rounding error, so a step that
+        // divides the span evenly keeps its last tick. A step small enough to
+        // put a tick on every pixel is already past the point of being
+        // readable, and generating them all would stall.
+        let count = min(Int((span / step) * (1 + .ulpOfOne)), maxTickCount)
+
+        let values = (0...count).compactMap { index -> Double? in
+            let stepValue = min(bounds.lowerBound + Double(index) * step, bounds.upperBound)
+            return tick(stepValue).map { value(of: $0, in: bounds) }
+        }
+        return sorted(values, in: bounds)
+    }
+
+    private static let maxTickCount = 1000
+
+    private static func sorted(_ values: [Double], in bounds: ClosedRange<Double>) -> [Double] {
+        Array(Set(values.filter { bounds.contains($0) })).sorted()
+    }
+
+    /// Reflection reads the stored value directly. If a future SDK renames it,
+    /// `SliderTick`'s `Comparable` conformance still orders ticks by value,
+    /// which is enough to recover it by bisecting the bounds.
+    private static func value(of tick: SliderTick<Double>, in bounds: ClosedRange<Double>) -> Double {
+        for child in Mirror(reflecting: tick).children where child.label == "value" {
+            if let value = child.value as? Double { return value }
+        }
+
+        // Bisection can only find a tick that lies within the bounds. NaN
+        // drops the ones that do not, rather than placing them wrongly.
+        guard !(tick < SliderTick(bounds.lowerBound)), !(SliderTick(bounds.upperBound) < tick) else {
+            return .nan
+        }
+
+        var low = bounds.lowerBound
+        var high = bounds.upperBound
+        for _ in 0..<64 {
+            let middle = low + (high - low) / 2
+            guard middle > low, middle < high else { break }
+            if SliderTick(middle) < tick { low = middle } else { high = middle }
+        }
+        return low + (high - low) / 2
+    }
+}
+
+// MARK: - Metrics
+
+@available(iOS 26.0, *)
+private enum Metrics {
+    static let thumbSize = CGSize(width: 37, height: 24)
+    static let pressedThumbSize = CGSize(width: 56, height: 38)
+    static let trackHeight: CGFloat = 17.0 / 3
+    static let controlHeight: CGFloat = 35
+    static let lensCanvasHeight: CGFloat = 58
+    static let lensCanvasInset: CGFloat = 44
+
+    /// The gap the system control leaves between a value label and the track.
+    static let valueLabelSpacing: CGFloat = 8
+
+    static let tickDiameter: CGFloat = trackHeight / 2
+    /// The gap between the bottom of the track and the top of a tick.
+    static let tickSpacing: CGFloat = 4.25
+    static let tickCenterOffset: CGFloat = trackHeight / 2 + tickSpacing + tickDiameter / 2
+
+    static let pressAnimation = Animation.smooth(duration: 0.25)
 
     /// The thumb speed, in points per second, that stretches it the full
     /// `maxStretch`.
-    private static let stretchReferenceSpeed: CGFloat = 1200
-    private static let maxStretch: CGFloat = 0.22
-    private static let speedSmoothing: CGFloat = 0.6
-    private static let stretchSpring = Animation.spring(duration: 0.25, bounce: 0.5)
+    static let stretchReferenceSpeed: CGFloat = 1200
+    static let maxStretch: CGFloat = 0.22
+    static let speedSmoothing: CGFloat = 0.6
+    static let stretchSpring = Animation.spring(duration: 0.25, bounce: 0.5)
 }
 
 /// Squash and stretch applied to the thumb, preserving its rough area so a
@@ -334,11 +874,31 @@ private struct PressedThumbLensModifier: AnimatableModifier {
 #Preview("RangeSlider vs Slider") {
     @Previewable @State var range = 0.2...0.8
     @Previewable @State var value = 0.5
+    @Previewable @State var stepped = 2.0...8.0
+    @Previewable @State var steppedValue = 5.0
 
     if #available(iOS 26.0, *) {
         VStack(spacing: 40) {
             RangeSlider(range: $range)
             Slider(value: $value)
+
+            RangeSlider(
+                range: $stepped,
+                in: 0...10,
+                step: 1,
+                minimumValueLabel: { Text("0") },
+                maximumValueLabel: { Text("10") },
+                tick: { SliderTick($0) }
+            )
+            Slider(
+                value: $steppedValue,
+                in: 0...10,
+                step: 1,
+                label: { Text("Value") },
+                minimumValueLabel: { Text("0") },
+                maximumValueLabel: { Text("10") },
+                tick: { SliderTick($0) }
+            )
         }
         .padding()
     } else {
