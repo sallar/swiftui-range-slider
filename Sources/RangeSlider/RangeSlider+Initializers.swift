@@ -1,6 +1,6 @@
 import SwiftUI
 
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 extension RangeSlider where Label == EmptyView, ValueLabel == EmptyView {
     /// Creates a range slider to select a closed range from a given bounded range.
     ///
@@ -34,6 +34,7 @@ extension RangeSlider where Label == EmptyView, ValueLabel == EmptyView {
     ///   - bounds: The full range of the valid values. Defaults to `0...1`.
     ///   - ticks: The values to mark on the track.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -62,6 +63,7 @@ extension RangeSlider where Label == EmptyView, ValueLabel == EmptyView {
     ///   - tick: A tick to mark the given step value with, or `nil` to leave
     ///     that step unmarked.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -82,7 +84,7 @@ extension RangeSlider where Label == EmptyView, ValueLabel == EmptyView {
     }
 }
 
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 extension RangeSlider where Label == EmptyView {
     /// Creates a range slider with labels for its minimum and maximum values.
     ///
@@ -123,6 +125,7 @@ extension RangeSlider where Label == EmptyView {
     ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
     ///   - ticks: The values to mark on the track.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -155,6 +158,7 @@ extension RangeSlider where Label == EmptyView {
     ///   - tick: A tick to mark the given step value with, or `nil` to leave
     ///     that step unmarked.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -177,7 +181,7 @@ extension RangeSlider where Label == EmptyView {
     }
 }
 
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 extension RangeSlider where ValueLabel == EmptyView {
     /// Creates a labeled range slider.
     ///
@@ -217,6 +221,7 @@ extension RangeSlider where ValueLabel == EmptyView {
     ///     iOS, it is not drawn; it names the control for VoiceOver.
     ///   - ticks: The values to mark on the track.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -248,6 +253,7 @@ extension RangeSlider where ValueLabel == EmptyView {
     ///   - tick: A tick to mark the given step value with, or `nil` to leave
     ///     that step unmarked.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -269,7 +275,7 @@ extension RangeSlider where ValueLabel == EmptyView {
     }
 }
 
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 extension RangeSlider {
     /// Creates a labeled range slider with labels for its minimum and maximum
     /// values.
@@ -316,6 +322,7 @@ extension RangeSlider {
     ///   - maximumValueLabel: A view that describes `bounds.upperBound`.
     ///   - ticks: The values to mark on the track.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,
@@ -351,6 +358,7 @@ extension RangeSlider {
     ///   - tick: A tick to mark the given step value with, or `nil` to leave
     ///     that step unmarked.
     ///   - onEditingChanged: A callback for when editing begins and ends.
+    @available(iOS 26.0, macOS 26.0, *)
     public init(
         range: Binding<ClosedRange<Double>>,
         in bounds: ClosedRange<Double> = 0...1,

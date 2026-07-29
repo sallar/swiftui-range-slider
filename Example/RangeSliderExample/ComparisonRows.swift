@@ -51,45 +51,72 @@ struct ComparisonRows: View {
                 Text(labeled.formatted)
             }
 
-            comparison("Step of 1 over 0…10, ticked on every step") {
-                Slider(
-                    value: $steppedValue,
-                    in: 0...10,
-                    step: 1,
-                    label: { Text("Rating") },
-                    minimumValueLabel: { Text("0") },
-                    maximumValueLabel: { Text("10") },
-                    tick: { SliderTick($0) }
-                )
+            // Ticks arrived with `SliderTick` in the iOS 26 SDK. On an older OS
+            // neither control has them, so the stepped row falls back to the
+            // same slider without ticks, and the row that is only about ticks
+            // drops out entirely.
+            comparison(steppedTitle) {
+                if #available(iOS 26.0, macOS 26.0, *) {
+                    Slider(
+                        value: $steppedValue,
+                        in: 0...10,
+                        step: 1,
+                        label: { Text("Rating") },
+                        minimumValueLabel: { Text("0") },
+                        maximumValueLabel: { Text("10") },
+                        tick: { SliderTick($0) }
+                    )
+                } else {
+                    Slider(
+                        value: $steppedValue,
+                        in: 0...10,
+                        step: 1,
+                        label: { Text("Rating") },
+                        minimumValueLabel: { Text("0") },
+                        maximumValueLabel: { Text("10") }
+                    )
+                }
             } range: {
-                RangeSlider(
-                    range: $stepped,
-                    in: 0...10,
-                    step: 1,
-                    minimumValueLabel: { Text("0") },
-                    maximumValueLabel: { Text("10") },
-                    tick: { SliderTick($0) }
-                )
+                if #available(iOS 26.0, macOS 26.0, *) {
+                    RangeSlider(
+                        range: $stepped,
+                        in: 0...10,
+                        step: 1,
+                        minimumValueLabel: { Text("0") },
+                        maximumValueLabel: { Text("10") },
+                        tick: { SliderTick($0) }
+                    )
+                } else {
+                    RangeSlider(
+                        range: $stepped,
+                        in: 0...10,
+                        step: 1,
+                        minimumValueLabel: { Text("0") },
+                        maximumValueLabel: { Text("10") }
+                    )
+                }
             } readout: {
                 Text(stepped.formatted)
             }
 
-            comparison("Listed ticks") {
-                Slider(value: $listedValue) {
-                    Text("Position")
-                } ticks: {
-                    SliderTick(0.25)
-                    SliderTick(0.5)
-                    SliderTick(0.75)
+            if #available(iOS 26.0, macOS 26.0, *) {
+                comparison("Listed ticks") {
+                    Slider(value: $listedValue) {
+                        Text("Position")
+                    } ticks: {
+                        SliderTick(0.25)
+                        SliderTick(0.5)
+                        SliderTick(0.75)
+                    }
+                } range: {
+                    RangeSlider(range: $listed) {
+                        SliderTick(0.25)
+                        SliderTick(0.5)
+                        SliderTick(0.75)
+                    }
+                } readout: {
+                    Text(listed.formatted)
                 }
-            } range: {
-                RangeSlider(range: $listed) {
-                    SliderTick(0.25)
-                    SliderTick(0.5)
-                    SliderTick(0.75)
-                }
-            } readout: {
-                Text(listed.formatted)
             }
 
             comparison("Tinted, over 0…500 stepping by 10") {
@@ -105,6 +132,14 @@ struct ComparisonRows: View {
     }
 
     // MARK: - Pieces
+
+    private var steppedTitle: String {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            "Step of 1 over 0…10, ticked on every step"
+        } else {
+            "Step of 1 over 0…10"
+        }
+    }
 
     private func comparison(
         _ title: String,

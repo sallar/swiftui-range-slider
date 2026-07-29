@@ -7,7 +7,7 @@ import SwiftUI
 /// accessibility. Everything that differs between platforms and OS versions
 /// lives behind this protocol, so a new look is a new conformance rather than a
 /// thicket of `#if` inside the control.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 protocol RangeSliderStyle {
     associatedtype TrackBody: View
     associatedtype ThumbBody: View
@@ -26,7 +26,7 @@ protocol RangeSliderStyle {
 // MARK: - Metrics
 
 /// The measurements a style lays the control out with.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 struct RangeSliderMetrics {
     /// The size of a thumb at rest. Its width also sets how far the track is
     /// inset, so a thumb at either bound sits fully inside the control.
@@ -74,7 +74,7 @@ struct RangeSliderMetrics {
 }
 
 /// How a platform draws the labels at either end of the track.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 enum ValueLabelStyle {
     /// Drawn as they come, the way iOS draws them.
     case plain
@@ -98,7 +98,7 @@ enum ValueLabelStyle {
 
 /// Squash and stretch applied to the thumb, preserving its rough area so a
 /// wider capsule also reads as a shorter one.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 struct ThumbStretch {
     /// The widest the thumb stretches, as a fraction of its resting width.
     var maxStretch: CGFloat
@@ -130,7 +130,7 @@ struct ThumbStretch {
 ///
 /// All coordinates are in the control's own space, where `0` is its leading
 /// edge and `size.height / 2` the center of the track.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 struct RangeSliderTrackConfiguration {
     var size: CGSize
 
@@ -158,7 +158,7 @@ struct RangeSliderTrackConfiguration {
 }
 
 /// The size and state of a single thumb.
-@available(iOS 26.0, macOS 26.0, *)
+@available(iOS 18.0, macOS 26.0, *)
 struct RangeSliderThumbConfiguration {
     /// The size the control has resolved for this thumb, with the press and any
     /// stretch already applied.
@@ -171,49 +171,50 @@ struct RangeSliderThumbConfiguration {
 
 /// The style the running platform calls for.
 ///
-/// Selection has to survive into the view body — a future iOS 18 look is chosen
-/// at runtime, not at compile time — so the cases are switched over rather than
-/// resolved to a single concrete type. Each branch keeps its own static type,
-/// which leaves the view identity of a given platform's slider stable.
-@available(iOS 26.0, macOS 26.0, *)
+/// Two axes decide it. Which platform's slider to imitate is known when the
+/// package is compiled, so it is a `#if`. Which of that platform's looks to wear
+/// is only known when the app runs — an iOS 26 SDK builds one binary that has to
+/// draw Liquid Glass on iOS 26 and the older look on iOS 18 — so it is an
+/// `#available` inside the view body. Each branch keeps its own static type,
+/// which leaves the view identity of a given device's slider stable.
+@available(iOS 18.0, macOS 26.0, *)
 struct PlatformSliderStyle: RangeSliderStyle {
-    enum Kind {
-        /// The iOS 26 look: a Liquid Glass thumb that grows under the finger.
-        case liquidGlass
-        /// The macOS 26 look: a small round knob on a thin track.
-        case mac
-    }
-
-    var kind: Kind
-
-    static var current: PlatformSliderStyle {
-        #if os(macOS)
-        PlatformSliderStyle(kind: .mac)
-        #else
-        PlatformSliderStyle(kind: .liquidGlass)
-        #endif
-    }
+    static var current: PlatformSliderStyle { PlatformSliderStyle() }
 
     var metrics: RangeSliderMetrics {
-        switch kind {
-        case .liquidGlass: LiquidGlassSliderStyle().metrics
-        case .mac: MacSliderStyle().metrics
+        #if os(macOS)
+        return MacSliderStyle().metrics
+        #else
+        if #available(iOS 26.0, *) {
+            return LiquidGlassSliderStyle().metrics
         }
+        return ClassicSliderStyle().metrics
+        #endif
     }
 
     @ViewBuilder
     func track(_ configuration: RangeSliderTrackConfiguration) -> some View {
-        switch kind {
-        case .liquidGlass: LiquidGlassSliderStyle().track(configuration)
-        case .mac: MacSliderStyle().track(configuration)
+        #if os(macOS)
+        MacSliderStyle().track(configuration)
+        #else
+        if #available(iOS 26.0, *) {
+            LiquidGlassSliderStyle().track(configuration)
+        } else {
+            ClassicSliderStyle().track(configuration)
         }
+        #endif
     }
 
     @ViewBuilder
     func thumb(_ configuration: RangeSliderThumbConfiguration) -> some View {
-        switch kind {
-        case .liquidGlass: LiquidGlassSliderStyle().thumb(configuration)
-        case .mac: MacSliderStyle().thumb(configuration)
+        #if os(macOS)
+        MacSliderStyle().thumb(configuration)
+        #else
+        if #available(iOS 26.0, *) {
+            LiquidGlassSliderStyle().thumb(configuration)
+        } else {
+            ClassicSliderStyle().thumb(configuration)
         }
+        #endif
     }
 }
