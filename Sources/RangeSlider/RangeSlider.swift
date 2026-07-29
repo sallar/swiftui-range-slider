@@ -25,9 +25,13 @@ import SwiftUI
 /// )
 /// ```
 ///
-/// The control draws itself the way the platform it is running on draws its own
-/// slider: Liquid Glass thumbs on iOS, round knobs on a thin track on macOS.
-@available(iOS 26.0, macOS 26.0, *)
+/// The control draws itself the way the OS it is running on draws its own
+/// slider: a Liquid Glass thumb on iOS 26 and macOS 26, and the opaque knob on a
+/// thin track that iOS 18 wears.
+///
+/// The initializers that take ticks are gated on iOS 26, which is the SDK that
+/// introduced `SliderTick`; everything else is available from iOS 18.
+@available(iOS 18.0, macOS 26.0, *)
 public struct RangeSlider<Label: View, ValueLabel: View>: View {
     @Binding private var range: ClosedRange<Double>
     private let bounds: ClosedRange<Double>
@@ -366,32 +370,35 @@ private let minimumTickSpacing: CGFloat = 4
     @Previewable @State var stepped = 2.0...8.0
     @Previewable @State var steppedValue = 5.0
 
-    if #available(iOS 26.0, macOS 26.0, *) {
+    if #available(iOS 18.0, macOS 26.0, *) {
         VStack(spacing: 40) {
             RangeSlider(range: $range)
             Slider(value: $value)
 
-            RangeSlider(
-                range: $stepped,
-                in: 0...10,
-                step: 1,
-                minimumValueLabel: { Text("0") },
-                maximumValueLabel: { Text("10") },
-                tick: { SliderTick($0) }
-            )
-            Slider(
-                value: $steppedValue,
-                in: 0...10,
-                step: 1,
-                label: { Text("Value") },
-                minimumValueLabel: { Text("0") },
-                maximumValueLabel: { Text("10") },
-                tick: { SliderTick($0) }
-            )
+            // Ticks came with iOS 26; below it neither control has them.
+            if #available(iOS 26.0, *) {
+                RangeSlider(
+                    range: $stepped,
+                    in: 0...10,
+                    step: 1,
+                    minimumValueLabel: { Text("0") },
+                    maximumValueLabel: { Text("10") },
+                    tick: { SliderTick($0) }
+                )
+                Slider(
+                    value: $steppedValue,
+                    in: 0...10,
+                    step: 1,
+                    label: { Text("Value") },
+                    minimumValueLabel: { Text("0") },
+                    maximumValueLabel: { Text("10") },
+                    tick: { SliderTick($0) }
+                )
+            }
         }
         .padding()
         .frame(width: 320)
     } else {
-        Text("RangeSlider requires iOS 26 or macOS 26")
+        Text("RangeSlider requires iOS 18 or macOS 26")
     }
 }

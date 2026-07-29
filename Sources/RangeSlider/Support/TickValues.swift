@@ -2,8 +2,12 @@ import SwiftUI
 
 /// Reads the values out of SwiftUI's `SliderTick`, which carries one but does
 /// not expose it.
-@available(iOS 26.0, macOS 26.0, *)
+///
+/// `SliderTick` arrived in the iOS 26 SDK, so the two readers are gated on it.
+/// The step grid is arithmetic the older OS needs too, and is not.
+@available(iOS 18.0, macOS 26.0, *)
 enum TickValues {
+    @available(iOS 26.0, macOS 26.0, *)
     static func from(
         _ content: some SliderTickContent<Double>,
         in bounds: ClosedRange<Double>
@@ -11,6 +15,7 @@ enum TickValues {
         sorted(content.body.map { value(of: $0, in: bounds) }, in: bounds)
     }
 
+    @available(iOS 26.0, macOS 26.0, *)
     static func from(
         _ tick: (Double) -> SliderTick<Double>?,
         steppingBy step: Double,
@@ -51,6 +56,7 @@ enum TickValues {
     /// Reflection reads the stored value directly. If a future SDK renames it,
     /// `SliderTick`'s `Comparable` conformance still orders ticks by value,
     /// which is enough to recover it by bisecting the bounds.
+    @available(iOS 26.0, macOS 26.0, *)
     private static func value(of tick: SliderTick<Double>, in bounds: ClosedRange<Double>) -> Double {
         for child in Mirror(reflecting: tick).children where child.label == "value" {
             if let value = child.value as? Double { return value }

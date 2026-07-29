@@ -1,6 +1,6 @@
 # RangeSlider
 
-A SwiftUI range slider that looks and feels like the system `Slider` on the platform it is running on — same metrics, ticks, value labels, tint behavior, and the same Liquid Glass thumb that turns clear while you drag it.
+A SwiftUI range slider that looks and feels like the system `Slider` on the OS it is running on — same metrics, ticks, value labels, tint behavior, and the same Liquid Glass thumb that turns clear while you drag it on iOS 26 and macOS 26. On iOS 18 it wears that OS's own look instead, down to the gray of the track and the shadow under the knob.
 
 SwiftUI (and UIKit, and AppKit) only ship a single-thumb slider. `RangeSlider` fills that gap with two thumbs for selecting a closed range.
 
@@ -22,11 +22,16 @@ The example app puts the system `Slider` directly above a `RangeSlider` in every
 
 ## Requirements
 
-- iOS 26.0+ or macOS 26.0+
+- iOS 18.0+ or macOS 26.0+
 - Swift 6.2+ / Xcode 26+
 
-The package itself can be added to iOS 18 and macOS 15 targets; the control is
-gated on the newer OS.
+On iOS 26 the control wears Liquid Glass; on iOS 18 it wears the look that OS
+draws its own slider with — an opaque knob on a thin track, no growth under the
+finger, no glass. The initializers that take ticks are the one exception to the
+iOS 18 floor: they are gated on iOS 26, which is the SDK that introduced
+`SliderTick`, and where the system slider first drew ticks at all.
+
+The package can be added to a macOS 15 target; the control is gated on macOS 26.
 
 ## Installation
 
@@ -65,8 +70,11 @@ RangeSlider(range: $priceRange, in: 0...500, step: 10) { editing in
 
 ### Tick marks
 
-The initializers mirror `Slider`, so ticks are described the same way — with
-SwiftUI's own `SliderTick`. Pass a `tick` closure to mark step values:
+Ticks need iOS 26 or macOS 26: they are described with SwiftUI's own
+`SliderTick`, which is the type the system slider gained them with.
+
+The initializers mirror `Slider`, so ticks are described the same way. Pass a
+`tick` closure to mark step values:
 
 ```swift
 RangeSlider(range: $rating, in: 0...10, step: 1, tick: { SliderTick($0) })
@@ -116,24 +124,29 @@ RangeSlider(range: $range)
 - Thumbs clamp against each other — the lower bound can never exceed the upper bound.
 - Both thumbs are individually accessible with VoiceOver adjustable actions, stepping tick by tick where there are ticks.
 
-## How each platform is drawn
+## How each OS is drawn
 
-Everything that differs between platforms lives behind a single internal
-`RangeSliderStyle`: the metrics, the track, and the thumb. The control itself
-only does arithmetic — positions, values, gestures and accessibility — so a look
-is a conformance rather than a thicket of `#if` in the middle of the control.
+Everything that differs between platforms and OS versions lives behind a single
+internal `RangeSliderStyle`: the metrics, the track, and the thumb. The control
+itself only does arithmetic — positions, values, gestures and accessibility — so
+a look is a conformance rather than a thicket of `#if` in the middle of the
+control. Which platform's slider to imitate is settled when the package is
+compiled; which of that platform's looks to wear is settled at runtime, so one
+binary built against the iOS 26 SDK draws the right slider on both.
 
-| | iOS 26 | macOS 26 |
-| --- | --- | --- |
-| Thumb | 37 × 24 capsule, grows to 56 × 38 under the finger | 20 × 16 capsule, grows to 24 × 20 under the pointer |
-| Track | 5.67 pt | 6 pt |
-| Held thumb | clear glass, stretching with the speed of the drag | clear glass, no stretch |
-| Stepped slider | marked only where ticks are given | every step marked, as macOS does |
-| Label | undrawn | drawn ahead of the control |
-| Pressing the track | picks up the nearest thumb | carries the nearest knob to the pointer |
+| | iOS 26 | iOS 18 | macOS 26 |
+| --- | --- | --- | --- |
+| Thumb | 37 × 24 capsule, grows to 56 × 38 under the finger | 27 pt circle, same size held | 20 × 16 capsule, grows to 24 × 20 under the pointer |
+| Track | 5.67 pt, stopping short of the ends | 4 pt, reaching the ends | 6 pt |
+| Held thumb | clear glass, stretching with the speed of the drag | unchanged | clear glass, no stretch |
+| Stepped slider | marked only where ticks are given | never marked, as iOS 18 has no ticks | every step marked, as macOS does |
+| Label | undrawn | undrawn | drawn ahead of the control |
+| Pressing the track | picks up the nearest thumb | picks up the nearest thumb | carries the nearest knob to the pointer |
 
-Both platforms share one Metal shader for the glass, at the size and body their
-own control calls for.
+The two Liquid Glass looks share one Metal shader, at the size and body their
+own control calls for. The iOS 18 look needs none of it: its measurements, its
+track gray, and the three-layer shadow under its knob were all read off the
+system slider at 3× and reproduced.
 
 ## Example app
 
